@@ -1,6 +1,6 @@
 from flask import Flask
 from threading import Thread
-
+ 
 app = Flask('')
 
 @app.route('/')
@@ -231,22 +231,6 @@ def show_points(msg):
         bot.send_message(user_id, f"Ù†Ù‚Ø§Ø·Ùƒ Ø§Ù„Ø­Ø§Ù„ÙŠØ©: {points} Ù†Ù‚Ø·Ø© (Ø¹Ø¯Ø¯ Ø§Ù„Ø¯Ø¹ÙˆØ§Øª: {invites[0]})")
     else:
         bot.send_message(user_id, "Ù„Ù… ÙŠØªÙ… Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ù†Ù‚Ø§Ø·Ùƒ.")
-from flask import Flask
-from threading import Thread
 
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "I'm alive!"
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-# Start the server in a thread
-t = Thread(target=run)
-t.start()
 print("Bot is running...")
-from keep_alive import keep_alive
-keep_alive()
 bot.infinity_polling()
