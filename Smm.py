@@ -1,3 +1,8 @@
+from smm.keep_alive import keep_alive
+keep_alive()
+
+# '8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ'
+print("Bot is running...")
 from flask import Flask
 from threading import Thread
 
