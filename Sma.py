@@ -239,6 +239,12 @@ def show_points(msg):
         bot.send_message(user_id, "لم يتم العثور على نقاطك.")
         
         TOKEN = '8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ'
+        bot = telebot.TeleBot(TOKEN)
 
-bot = telebot.TeleBot(TOKEN)
+@app.route('/' + TOKEN, methods=['POST'])
+def receive_update():
+    bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
+    return "!", 200
+
+bot.remove_webhook()
 bot.set_webhook(url='https://mainn-7th7.onrender.com/' + TOKEN)
