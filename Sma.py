@@ -24,10 +24,6 @@ def run():
 
 Thread(target=run).start()
 
-# Webhook setup (غيّر الرابط برابطك على Render)
-bot.remove_webhook()
-bot.set_webhook(url='https://mainn-7th7.onrender.com' + TOKEN)
-
 # باقي الكود:
 
 ADMIN_ID = 6831120113
@@ -239,4 +235,4 @@ def show_points(msg):
         bot.send_message(user_id, "لم يتم العثور على نقاطك.")
 
 bot.remove_webhook()
-bot.set_webhook(url='https://mainn-7th7.onrender.com/' + TOKEN)
+bot.set_webhook(url='https://mainn-7th7.onrender.com/8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ')
