@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 from flask import Flask
 from threading import Thread
-
+ 
 app = Flask('')
 
 @app.route('/')
@@ -16,6 +15,8 @@ Thread(target=run).start()
 import telebot
 from telebot import types
 import sqlite3
+from flask import Flask, request
+import keep_alive 
 
 TOKEN = '8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ'
 bot = telebot.TeleBot(TOKEN)
@@ -67,9 +68,9 @@ def start(message):
     if not is_subscribed(user_id):
         markup = types.InlineKeyboardMarkup()
         for ch in FORCE_CHANNELS:
-            markup.add(types.InlineKeyboardButton(f"اشترك في {ch}", url=f"https://t.me/{ch[1:]}"))
-        markup.add(types.InlineKeyboardButton("✅ تم الاشتراك", callback_data='check_join'))
-        bot.send_message(user_id, "الرجاء الاشتراك بجميع القنوات المطلوبة لاستخدام البوت:", reply_markup=markup)
+            markup.add(types.InlineKeyboardButton(f"Join {ch} / اشترك في {ch}", url=f"https://t.me/{ch[1:]}"))
+        markup.add(types.InlineKeyboardButton("✅ I've Joined / تم الاشتراك", callback_data='check_join'))
+        bot.send_message(user_id, "Please join all required channels / الرجاء الاشتراك بجميع القنوات المطلوبة لاستخدام البوت:", reply_markup=markup)
     else:
         ask_phone(message)
 
@@ -81,7 +82,7 @@ def check_join(call):
         bot.answer_callback_query(call.id, "❌ لم يتم التحقق من الاشتراك بعد!", show_alert=True)
 
 def ask_phone(message):
-    bot.send_message(message.chat.id, "أرسل رقم هاتفك:")
+    bot.send_message(message.chat.id, "Send your phone number / أرسل رقم هاتفك:")
     bot.register_next_step_handler(message, save_user_info)
 
 def save_user_info(message):
@@ -97,16 +98,141 @@ def send_main_menu(chat_id):
     user = cursor.fetchone()
     if user:
         points = user[2] * 5
-        msg = f"اسم المستخدم: @{user[0]}\nرقم الهاتف: {user[1]}\nالنقاط: {points}\nدعوات الأصدقاء: {user[2]}\n\nكل دعوة صديق = 5 نقاط. كل 200 نقطة يمكنك الضغط على الزر للحصول على اشتراك مجاني."
+        msg = f"Username / اسم المستخدم: @{user[0]}\nPhone / رقم الهاتف: {user[1]}\nPoints / النقاط: {points}\nInvites / دعوات الأصدقاء: {user[2]}\n\nكل دعوة صديق = 5 نقاط. كل 200 نقطة يمكنك الضغط على الزر للحصول على اشتراك مجاني."
     else:
-        msg = "لم يتم العثور على المستخدم."
+        msg = "User not found / لم يتم العثور على المستخدم."
 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    markup.row("انستغرام", "تيك توك")
-    markup.row("فيسبوك", "تيليجرام")
-    markup.row("رابط الدعوة", "نقاطي")
+    markup.row("Instagram / انستغرام", "TikTok / تيك توك")
+    markup.row("Facebook / فيسبوك", "Telegram / تيليجرام")
+    markup.row("Referral Link / رابط الدعوة", "نقاطي")
     markup.row("الحصول على اشتراك مجاني")
-    bot.send_message(chat_id, msg, reply_markup=markup)
+    bot.send_message(chat_id, msg, reply_markup=markup, parse_mode="Markdown")
+
+@bot.message_handler(func=lambda msg: msg.text in ["Instagram / انستغرام", "TikTok / تيك توك", "Facebook / فيسبوك", "Telegram / تيليجرام"])
+def handle_platform(msg):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("Followers / متابعين", "Likes / إعجابات", "Views / مشاهدات")
+    markup.row("⬅️ Back / رجوع")
+    bot.send_message(msg.chat.id, f"اختر الخدمة لـ {msg.text}:", reply_markup=markup)
+
+@bot.message_handler(func=lambda msg: msg.text in ["Followers / متابعين", "Likes / إعجابات", "Views / مشاهدات"])
+def handle_service(msg):
+    if msg.text == "⬅️ Back / رجوع":
+        send_main_menu(msg.chat.id)
+        return
+    note = "يجب عليك ارفاق رصيد لأتمام العملية فوراً"
+    prices = {
+        "Followers / متابعين": [
+            "1000 متابع = رصيد أبو ال2",
+            "3000 متابع = رصيد ابو ال5",
+            "6000 متابع = رصيد ابو ال10"
+        ],
+        "Likes / إعجابات": [
+            "3000 إعجاب = رصيد ابو 2",
+            "8000 إعجاب = رصيد ابو ال5",
+            "15000 إعجاب = رصيد ابو ال10"
+        ],
+        "Views / مشاهدات": [
+            "3000 مشاهدة = رصيد ابو 2",
+            "8000 مشاهدة = رصيد ابو ال5",
+            "15000 مشاهدة = رصيد ابو ال10"
+        ]
+    }
+    services = prices.get(msg.text, [])
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    for service in services:
+        markup.add(service)
+    markup.row("⬅️ Back / رجوع")
+    bot.send_message(msg.chat.id, f"اختر الخدمة التي تريدها لـ {msg.text}:\n{note}", reply_markup=markup)
+    bot.register_next_step_handler(msg, lambda m: ask_link(m, msg.text))
+
+def ask_link(message, service):
+    if message.text == "⬅️ Back / رجوع":
+        send_main_menu(message.chat.id)
+        return
+    message.chat.service = service  # حفظ نوع الخدمة
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("⬅️ Back / رجوع")
+    bot.send_message(message.chat.id, "أرسل رابط الصفحة أو   المنشور المراد رشقه:", reply_markup=markup)
+    bot.register_next_step_handler(message, lambda m: ask_code(m, service, m.text))
+
+def ask_code(message, service, page_link):
+    if message.text == "⬅️ Back / رجوع":
+        send_main_menu(message.chat.id)
+        return
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.row("⬅️ Back / رجوع")
+    bot.send_message(message.chat.id, f"رابطك:\n{page_link}\n\nالآن  أرسل رمز كارت زين أو آسيا سيل ⚠️سوف يتم التحقق من رقم الرصيد المرفق تلقائياً:", reply_markup=markup)
+    bot.register_next_step_handler(message, lambda m: send_to_admin(m, service, page_link))
+
+def send_to_admin(message, service, page_link):
+    if message.text == "⬅️ Back / رجوع":
+        send_main_menu(message.chat.id)
+        return
+    code = message.text.strip()
+    user = message.from_user
+    cursor.execute("SELECT phone FROM users WHERE id=?", (user.id,))
+    phone_result = cursor.fetchone()
+    phone = phone_result[0] if phone_result else "غير معروف"
+    text = f"🛒 طلب جديد\n\n👤 المستخدم: @{user.username} ({user.id})\n📞 رقم الهاتف: {phone}\n📦 الخدمة: {service}\n🔗 الرابط: {page_link}\n💳 الكود: {code}\n⏳ يتم التحقيق في الطلب ... سوف يتم الرشق خلال 24 ساعة فقط"
+    
+    # Send the code again in a new message for easy copying
+    bot.send_message(DETAILS_CHANNEL, text, parse_mode="Markdown")
+    bot.send_message(DETAILS_CHANNEL, f"  {code}")
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("✅ قبول", callback_data=f"accept_{user.id}"),
+        types.InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user.id}")
+    )
+    bot.send_message(user.id, "يتم التحقق.. سوف يتم الرشق خلال 24 ساعة فقط.")
+    bot.send_message(DETAILS_CHANNEL, text, parse_mode="Markdown", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("accept_") or call.data.startswith("reject_"))
+def handle_admin_response(call):
+    user_id = int(call.data.split("_")[1])
+    if call.data.startswith("accept"):
+        bot.send_message(user_id, "✅ تم قبول كودك. سيتم تنفيذ العملية خلال 24 ساعة فقط.")
+    else:
+        bot.send_message(user_id, "❌ تم رفض كودك. حاول مرة أخرى.")
+    bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+
+@bot.message_handler(func=lambda msg: msg.text == "⬅️ Back / رجوع")
+def go_back(msg):
+    send_main_menu(msg.chat.id)
+
+@bot.message_handler(func=lambda msg: msg.text == "Referral Link / رابط الدعوة")
+def send_ref_link(msg):
+    user_id = msg.from_user.id
+    link = f"[https://t.me/{bot.get_me().username}?start={user_id}](https://t.me/{bot.get_me().username}?start={user_id})"
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📋 انسخ الرابط", switch_inline_query=link))
+    bot.send_message(msg.chat.id, f"انسخ وشارك هذا الرابط لدعوة أصدقائك:\n\n`{link}`", parse_mode="Markdown", reply_markup=markup)
+
+@bot.message_handler(func=lambda msg: msg.text == "الحصول على اشتراك مجاني")
+def check_free_subscription(msg):
+    user_id = msg.from_user.id
+    cursor.execute("SELECT invites FROM users WHERE id=?", (user_id,))
+    invites = cursor.fetchone()
+    if invites and invites[0] * 5 >= 200:
+        bot.send_message(DETAILS_CHANNEL, f"✅ المستخدم @{msg.from_user.username} ({user_id}) وصل إلى 200 نقطة ويستحق اشتراك مجاني!")
+        bot.send_message(user_id, "تهانينا! تم إشعار الإدارة للحصول على اشتراك مجاني.")
+    else:
+        bot.send_message(user_id, "❌ لم تصل إلى 200 نقطة بعد. كل دعوة صديق = 5 نقاط.")
+
+@bot.message_handler(func=lambda msg: msg.text == "نقاطي")
+def show_points(msg):
+    user_id = msg.from_user.id
+    cursor.execute("SELECT invites FROM users WHERE id=?", (user_id,))
+    invites = cursor.fetchone()
+    if invites:
+        points = invites[0] * 5
+        bot.send_message(user_id, f"نقاطك الحالية: {points} نقطة (عدد الدعوات: {invites[0]})")
+    else:
+        bot.send_message(user_id, "لم يتم العثور على نقاطك.")
 
 print("Bot is running...")
 bot.infinity_polling()
+
+   
