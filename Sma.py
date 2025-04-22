@@ -237,3 +237,5 @@ def show_points(msg):
         bot.send_message(user_id, f"نقاطك الحالية: {points} نقطة (عدد الدعوات: {invites[0]})")
     else:
         bot.send_message(user_id, "لم يتم العثور على نقاطك.")
+        
+        bot.set_webhook(url='https://mainn-7th7.onrender.com/' + TOKEN)
