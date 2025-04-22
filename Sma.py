@@ -1,25 +1,34 @@
-from flask import Flask
+from flask import Flask, request
 from threading import Thread
- 
-app = Flask('')
+import telebot
+from telebot import types
+import sqlite3
+
+TOKEN = '8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ'
+bot = telebot.TeleBot(TOKEN)
+
+app = Flask(__name__)
 
 @app.route('/')
 def home():
     return "I'm alive!"
+
+@app.route('/' + TOKEN, methods=['POST'])
+def webhook():
+    update = telebot.types.Update.de_json(request.get_data().decode('utf-8'))
+    bot.process_new_updates([update])
+    return "OK", 200
 
 def run():
     app.run(host='0.0.0.0', port=8080)
 
 Thread(target=run).start()
 
-import telebot
-from telebot import types
-import sqlite3
-from flask import Flask, request
-import keep_alive 
+# Webhook setup (غيّر الرابط برابطك على Render)
+bot.remove_webhook()
+bot.set_webhook(url='https://mainn-7th7.onrender.com' + TOKEN)
 
-TOKEN = '8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ'
-bot = telebot.TeleBot(TOKEN)
+# باقي الكود:
 
 ADMIN_ID = 6831120113
 DETAILS_CHANNEL = '@IQ3lu'
@@ -79,7 +88,7 @@ def check_join(call):
     if is_subscribed(call.from_user.id):
         ask_phone(call.message)
     else:
-        bot.answer_callback_query(call.id, "❌ لم يتم التحقق من الاشتراك بعد!", show_alert=True)
+        bot.answer_callback_query(call.id, "❌ الرجاء الاشتراك بجميع القنوات المطلوبة لاستخدام البوت !", show_alert=True)
 
 def ask_phone(message):
     bot.send_message(message.chat.id, "Send your phone number / أرسل رقم هاتفك:")
@@ -151,10 +160,10 @@ def ask_link(message, service):
     if message.text == "⬅️ Back / رجوع":
         send_main_menu(message.chat.id)
         return
-    message.chat.service = service  # حفظ نوع الخدمة
+    message.chat.service = service
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row("⬅️ Back / رجوع")
-    bot.send_message(message.chat.id, "أرسل رابط الصفحة أو   المنشور المراد رشقه:", reply_markup=markup)
+    bot.send_message(message.chat.id, "أرسل رابط الصفحة أو المنشور المراد رشقه:", reply_markup=markup)
     bot.register_next_step_handler(message, lambda m: ask_code(m, service, m.text))
 
 def ask_code(message, service, page_link):
@@ -163,7 +172,7 @@ def ask_code(message, service, page_link):
         return
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row("⬅️ Back / رجوع")
-    bot.send_message(message.chat.id, f"رابطك:\n{page_link}\n\nالآن  أرسل رمز كارت زين أو آسيا سيل ⚠️سوف يتم التحقق من رقم الرصيد المرفق تلقائياً:", reply_markup=markup)
+    bot.send_message(message.chat.id, f"رابطك:\n{page_link}\n\nالآن أرسل رمز كارت زين أو آسيا سيل ⚠️ سيتم التحقق تلقائيًا:", reply_markup=markup)
     bot.register_next_step_handler(message, lambda m: send_to_admin(m, service, page_link))
 
 def send_to_admin(message, service, page_link):
@@ -175,18 +184,15 @@ def send_to_admin(message, service, page_link):
     cursor.execute("SELECT phone FROM users WHERE id=?", (user.id,))
     phone_result = cursor.fetchone()
     phone = phone_result[0] if phone_result else "غير معروف"
-    text = f"🛒 طلب جديد\n\n👤 المستخدم: @{user.username} ({user.id})\n📞 رقم الهاتف: {phone}\n📦 الخدمة: {service}\n🔗 الرابط: {page_link}\n💳 الكود: {code}\n⏳ يتم التحقيق في الطلب ... سوف يتم الرشق خلال 24 ساعة فقط"
-    
-    # Send the code again in a new message for easy copying
+    text = f"🛒 طلب جديد\n\n👤 المستخدم: @{user.username} ({user.id})\n📞 رقم الهاتف: {phone}\n📦 الخدمة: {service}\n🔗 الرابط: {page_link}\n💳 الكود: {code}\n⏳ يتم التحقق من الطلب... خلال 24 ساعة فقط"
     bot.send_message(DETAILS_CHANNEL, text, parse_mode="Markdown")
-    bot.send_message(DETAILS_CHANNEL, f"  {code}")
-    
+    bot.send_message(DETAILS_CHANNEL, f"{code}")
     markup = types.InlineKeyboardMarkup()
     markup.add(
         types.InlineKeyboardButton("✅ قبول", callback_data=f"accept_{user.id}"),
         types.InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user.id}")
     )
-    bot.send_message(user.id, "يتم التحقق.. سوف يتم الرشق خلال 24 ساعة فقط.")
+    bot.send_message(user.id, "يتم التحقق.. سيتم الرشق خلال 24 ساعة.")
     bot.send_message(DETAILS_CHANNEL, text, parse_mode="Markdown", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("accept_") or call.data.startswith("reject_"))
@@ -205,7 +211,7 @@ def go_back(msg):
 @bot.message_handler(func=lambda msg: msg.text == "Referral Link / رابط الدعوة")
 def send_ref_link(msg):
     user_id = msg.from_user.id
-    link = f"[https://t.me/{bot.get_me().username}?start={user_id}](https://t.me/{bot.get_me().username}?start={user_id})"
+    link = f"https://t.me/{bot.get_me().username}?start={user_id}"
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📋 انسخ الرابط", switch_inline_query=link))
     bot.send_message(msg.chat.id, f"انسخ وشارك هذا الرابط لدعوة أصدقائك:\n\n`{link}`", parse_mode="Markdown", reply_markup=markup)
@@ -231,8 +237,3 @@ def show_points(msg):
         bot.send_message(user_id, f"نقاطك الحالية: {points} نقطة (عدد الدعوات: {invites[0]})")
     else:
         bot.send_message(user_id, "لم يتم العثور على نقاطك.")
-
-print("Bot is running...")
-bot.infinity_polling()
-
-   
