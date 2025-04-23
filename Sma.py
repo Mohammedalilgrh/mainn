@@ -22,8 +22,9 @@ def webhook():
 def run():
     app.run(host='0.0.0.0', port=8080)
 
-# تشغيل الخادم في Thread
 Thread(target=run).start()
+
+# باقي الكود:
 
 ADMIN_ID = 6831120113
 DETAILS_CHANNEL = '@IQ3lu'
@@ -232,4 +233,6 @@ def show_points(msg):
         bot.send_message(user_id, f"نقاطك الحالية: {points} نقطة (عدد الدعوات: {invites[0]})")
     else:
         bot.send_message(user_id, "لم يتم العثور على نقاطك.")
-bot.infinity_polling()
+
+bot.remove_webhook()
+bot.set_webhook(url='https://mainn-7th7.onrender.com/8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ')
