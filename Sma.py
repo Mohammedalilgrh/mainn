@@ -86,9 +86,7 @@ def check_join(call):
     else:
         bot.answer_callback_query(call.id, "❌ الرجاء الاشتراك بجميع القنوات المطلوبة لاستخدام البوت !", show_alert=True)
 
-def ask_phone(message):
-    bot.send_message(message.chat.id, "Send your phone number / أرسل رقم هاتفك:")
-    bot.register_next_step_handler(message, save_user_info)
+
 
 def save_user_info(message):
     phone = message.text.strip()
