@@ -216,23 +216,4 @@ def send_ref_link(msg):
 def check_free_subscription(msg):
     user_id = msg.from_user.id
     cursor.execute("SELECT invites FROM users WHERE id=?", (user_id,))
-    invites = cursor.fetchone()
-    if invites and invites[0] * 5 >= 200:
-        bot.send_message(DETAILS_CHANNEL, f"✅ المستخدم @{msg.from_user.username} ({user_id}) وصل إلى 200 نقطة ويستحق اشتراك مجاني!")
-        bot.send_message(user_id, "تهانينا! تم إشعار الإدارة للحصول على اشتراك مجاني.")
-    else:
-        bot.send_message(user_id, "❌ لم تصل إلى 200 نقطة بعد. كل دعوة صديق = 5 نقاط.")
-
-@bot.message_handler(func=lambda msg: msg.text == "نقاطي")
-def show_points(msg):
-    user_id = msg.from_user.id
-    cursor.execute("SELECT invites FROM users WHERE id=?", (user_id,))
-    invites = cursor.fetchone()
-    if invites:
-        points = invites[0] * 5
-        bot.send_message(user_id, f"نقاطك الحالية: {points} نقطة (عدد الدعوات: {invites[0]})")
-    else:
-        bot.send_message(user_id, "لم يتم العثور على نقاطك.")
-
-bot.remove_webhook()
-bot.set_webhook(url='https://mainn-7th7.onrender.com/8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ')
+    invites = cursor.fetchone
