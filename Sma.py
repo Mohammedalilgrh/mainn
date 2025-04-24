@@ -4,7 +4,7 @@ import telebot
 from telebot import types
 import sqlite3
 
-TOKEN = '8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ'
+TOKEN = 'YOUR_BOT_TOKEN'
 bot = telebot.TeleBot(TOKEN)
 
 app = Flask(__name__)
@@ -24,8 +24,6 @@ def run():
 
 Thread(target=run).start()
 
-# باقي الكود:
-
 ADMIN_ID = 6831120113
 DETAILS_CHANNEL = '@IQ3lu'
 FORCE_CHANNELS = ['@Mboost99', '@s111sgrh']
@@ -36,7 +34,6 @@ cursor.execute('''
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY,
         username TEXT,
-        phone TEXT,
         invites INTEGER DEFAULT 0
     )
 ''')
@@ -77,31 +74,21 @@ def start(message):
         markup.add(types.InlineKeyboardButton("✅ I've Joined / تم الاشتراك", callback_data='check_join'))
         bot.send_message(user_id, "Please join all required channels / الرجاء الاشتراك بجميع القنوات المطلوبة لاستخدام البوت:", reply_markup=markup)
     else:
-        ask_phone(message)
+        send_main_menu(message.chat.id)
 
 @bot.callback_query_handler(func=lambda call: call.data == 'check_join')
 def check_join(call):
     if is_subscribed(call.from_user.id):
-        ask_phone(call.message)
+        send_main_menu(call.message.chat.id)
     else:
         bot.answer_callback_query(call.id, "❌ الرجاء الاشتراك بجميع القنوات المطلوبة لاستخدام البوت !", show_alert=True)
 
-
-
-def save_user_info(message):
-    phone = message.text.strip()
-    user_id = message.from_user.id
-    username = message.from_user.username or f"user_{user_id}"
-    cursor.execute("UPDATE users SET username=?, phone=? WHERE id=?", (username, phone, user_id))
-    conn.commit()
-    send_main_menu(message.chat.id)
-
 def send_main_menu(chat_id):
-    cursor.execute("SELECT username, phone, invites FROM users WHERE id=?", (chat_id,))
+    cursor.execute("SELECT username, invites FROM users WHERE id=?", (chat_id,))
     user = cursor.fetchone()
     if user:
-        points = user[2] * 5
-        msg = f"Username / اسم المستخدم: @{user[0]}\nPhone / رقم الهاتف: {user[1]}\nPoints / النقاط: {points}\nInvites / دعوات الأصدقاء: {user[2]}\n\nكل دعوة صديق = 5 نقاط. كل 200 نقطة يمكنك الضغط على الزر للحصول على اشتراك مجاني."
+        points = user[1] * 5
+        msg = f"Username / اسم المستخدم: @{user[0]}\nPoints / النقاط: {points}\nInvites / دعوات الأصدقاء: {user[1]}\n\nكل دعوة صديق = 5 نقاط. كل 200 نقطة يمكنك الضغط على الزر للحصول على اشتراك مجاني."
     else:
         msg = "User not found / لم يتم العثور على المستخدم."
 
@@ -154,7 +141,6 @@ def ask_link(message, service):
     if message.text == "⬅️ Back / رجوع":
         send_main_menu(message.chat.id)
         return
-    message.chat.service = service
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row("⬅️ Back / رجوع")
     bot.send_message(message.chat.id, "أرسل رابط الصفحة أو المنشور المراد رشقه:", reply_markup=markup)
@@ -175,19 +161,14 @@ def send_to_admin(message, service, page_link):
         return
     code = message.text.strip()
     user = message.from_user
-    cursor.execute("SELECT phone FROM users WHERE id=?", (user.id,))
-    phone_result = cursor.fetchone()
-    phone = phone_result[0] if phone_result else "غير معروف"
-    text = f"🛒 طلب جديد\n\n👤 المستخدم: @{user.username} ({user.id})\n📞 رقم الهاتف: {phone}\n📦 الخدمة: {service}\n🔗 الرابط: {page_link}\n💳 الكود: {code}\n⏳ يتم التحقق من الطلب... خلال 24 ساعة فقط"
-    bot.send_message(DETAILS_CHANNEL, text, parse_mode="Markdown")
-    bot.send_message(DETAILS_CHANNEL, f"{code}")
+    text = f"🛒 طلب جديد\n\n👤 المستخدم: @{user.username} ({user.id})\n📦 الخدمة: {service}\n🔗 الرابط: {page_link}\n💳 الكود: {code}\n⏳ يتم التحقق من الطلب... خلال 24 ساعة فقط"
     markup = types.InlineKeyboardMarkup()
     markup.add(
         types.InlineKeyboardButton("✅ قبول", callback_data=f"accept_{user.id}"),
         types.InlineKeyboardButton("❌ رفض", callback_data=f"reject_{user.id}")
     )
-    bot.send_message(user.id, "يتم التحقق.. سيتم الرشق خلال 24 ساعة.")
     bot.send_message(DETAILS_CHANNEL, text, parse_mode="Markdown", reply_markup=markup)
+    bot.send_message(user.id, "يتم التحقق.. سيتم الرشق خلال 24 ساعة.")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("accept_") or call.data.startswith("reject_"))
 def handle_admin_response(call):
@@ -214,4 +195,6 @@ def send_ref_link(msg):
 def check_free_subscription(msg):
     user_id = msg.from_user.id
     cursor.execute("SELECT invites FROM users WHERE id=?", (user_id,))
-    invites = cursor.fetchone
+    invites = cursor.fetchone()
+    if invites and invites[0] * 5 >= 200:
+        bot.send_message(DETAILS_CHANNEL, f"✅ المستخدم @{msg.from_user.username} ({user_id}) وصل إلى 200 نقطة ويستحق اشتراك مجاني!")
