@@ -497,5 +497,5 @@ if __name__ == '__main__':
             max_connections=100
         )
         main()
-    except Exception as e:
-        logger.critical(f"Initialization failed: {e}")
+    
+const port = process.env.PORT
