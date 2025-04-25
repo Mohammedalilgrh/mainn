@@ -496,6 +496,4 @@ if __name__ == '__main__':
             url='https://mainn-7th7.onrender.com/' + TOKEN,
             max_connections=100
         )
-        main()
-    
-const port = process.env.PORT
+        main() 
