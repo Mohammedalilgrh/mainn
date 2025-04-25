@@ -3,6 +3,7 @@ from threading import Thread
 import telebot
 from telebot import types
 import sqlite3
+import time
 
 TOKEN = '8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ'
 bot = telebot.TeleBot(TOKEN)
@@ -80,10 +81,34 @@ def start(message):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'check_join')
 def check_join(call):
-    if is_subscribed(call.from_user.id):
-        send_main_menu(call.from_user.id)
-    else:
-        bot.answer_callback_query(call.id, "❌ الرجاء الاشتراك بجميع القنوات المطلوبة لاستخدام البوت !", show_alert=True)
+    try:
+        # إضافة تأخير صغير لضمان تحديث حالة العضوية
+        time.sleep(2)
+        
+        if is_subscribed(call.from_user.id):
+            # إرسال رسالة تأكيد أولاً
+            bot.answer_callback_query(call.id, "تم التحقق من اشتراكك بنجاح! ✓")
+            
+            # ثم إرسال القائمة الرئيسية
+            send_main_menu(call.from_user.id)
+            
+            # حذف رسالة الاشتراك القديمة
+            try:
+                bot.delete_message(call.message.chat.id, call.message.message_id)
+            except:
+                pass
+        else:
+            bot.answer_callback_query(
+                call.id,
+                "❌ الرجاء الاشتراك بجميع القنوات المطلوبة أولاً!",
+                show_alert=True
+            )
+    except Exception as e:
+        bot.answer_callback_query(
+            call.id,
+            "حدث خطأ أثناء التحقق، يرجى المحاولة مرة أخرى",
+            show_alert=True
+        )
 
 def send_main_menu(chat_id):
     cursor.execute("SELECT username, invites FROM users WHERE id=?", (chat_id,))
@@ -101,6 +126,7 @@ def send_main_menu(chat_id):
     markup.row("الحصول على اشتراك مجاني")
     bot.send_message(chat_id, msg, reply_markup=markup, parse_mode="Markdown")
 
+# باقي الدوال كما هي دون أي تغيير...
 @bot.message_handler(func=lambda msg: msg.text in ["Instagram / انستغرام", "TikTok / تيك توك", "Facebook / فيسبوك", "Telegram / تيليجرام"])
 def handle_platform(msg):
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
