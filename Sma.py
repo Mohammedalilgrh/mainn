@@ -235,4 +235,4 @@ def go_back(msg):
     send_main_menu(msg.chat.id)
 
 bot.remove_webhook()
-bot.set_webhook(url='https://your-render-app-name.onrender.com/' + TOKEN)
+bot.set_webhook(url='https://mainn-7th7.onrender.com' + TOKEN)
