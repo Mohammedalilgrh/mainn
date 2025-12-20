@@ -14,7 +14,7 @@ app = Flask(__name__)
 def home():
     return "Bot is running!"
 
-@app.route('/' + TOKEN, methods=['POST'])
+@app.route('/webhook', methods=['POST'])
 def webhook():
     if request.headers.get('content-type') == 'application/json':
         json_string = request.get_data().decode('utf-8')
@@ -26,8 +26,6 @@ def webhook():
 
 def run():
     app.run(host='0.0.0.0', port=8080)
-
-Thread(target=run).start()
 
 # Bot settings
 ADMIN_ID = 6831120113
@@ -92,24 +90,7 @@ def start(message):
 @bot.callback_query_handler(func=lambda call: call.data == 'check_join')
 def check_join(call):
     if is_subscribed(call.from_user.id):
-        # Directly show the free subscription section
-        user_id = call.from_user.id
-        cursor.execute("SELECT invites FROM users WHERE id=?", (user_id,))
-        invites = cursor.fetchone()
-        
-        if invites and invites[0] * 5 >= 200:
-            msg = "🎉 تهانينا! لقد وصلت إلى 200 نقطة وتستحق الحصول على اشتراك مجاني!\n\nاضغط على الزر أدناه للحصول على اشتراكك المجاني:"
-        else:
-            needed = 40 - invites[0] if invites else 40
-            msg = f"🔍 أنت بحاجة إلى {needed} دعوة أخرى للحصول على اشتراك مجاني (كل دعوة = 5 نقاط).\n\nيمكنك دعوة الأصدقاء باستخدام زر 'رابط الدعوة' في القائمة الرئيسية."
-        
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        markup.row("Instagram / انستغرام", "TikTok / تيك توك")
-        markup.row("Facebook / فيسبوك", "Telegram / تيليجرام")
-        markup.row("Referral Link / رابط الدعوة", "نقاطي")
-        markup.row(types.KeyboardButton("✨ الحصول على اشتراك مجاني ✨"))
-        
-        bot.send_message(call.from_user.id, msg, reply_markup=markup)
+        bot.answer_callback_query(call.id, "✅ تم التحقق من الاشتراك!", show_alert=True)
         send_main_menu(call.from_user.id)
     else:
         bot.answer_callback_query(call.id, "❌ الرجاء الاشتراك بجميع القنوات المطلوبة لاستخدام البوت!", show_alert=True)
@@ -127,7 +108,7 @@ def send_main_menu(chat_id):
     markup.row("Instagram / انستغرام", "TikTok / تيك توك")
     markup.row("Facebook / فيسبوك", "Telegram / تيليجرام")
     markup.row("Referral Link / رابط الدعوة", "نقاطي")
-    markup.row("الحصول على اشتراك مجاني")
+    markup.row("✨ الحصول على اشتراك مجاني ✨")
     bot.send_message(chat_id, msg, reply_markup=markup)
 
 @bot.message_handler(func=lambda msg: msg.text in ["Instagram / انستغرام", "TikTok / تيك توك", "Facebook / فيسبوك", "Telegram / تيليجرام"])
@@ -175,7 +156,6 @@ def ask_link(message, service):
         send_main_menu(message.chat.id)
         return
     
-    message.chat.service = service
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row("⬅️ Back / رجوع")
     bot.send_message(message.chat.id, "أرسل رابط الصفحة أو المنشور المراد رشقه:", reply_markup=markup)
@@ -201,7 +181,6 @@ def send_to_admin(message, service, page_link):
     text = f"🛒 طلب جديد\n\n👤 المستخدم: @{user.username} ({user.id})\n📦 الخدمة: {service}\n🔗 الرابط: {page_link}\n💳 الكود: {code}\n⏳ يتم التحقق من الطلب... خلال 24 ساعة فقط"
     
     bot.send_message(DETAILS_CHANNEL, text, parse_mode="Markdown")
-    bot.send_message(DETAILS_CHANNEL, f"{code}")
     
     markup = types.InlineKeyboardMarkup()
     markup.add(
@@ -259,7 +238,17 @@ def show_points(msg):
         bot.send_message(user_id, "لم يتم العثور على نقاطك.")
 
 if __name__ == '__main__':
-    print("Bot is running...")
+    print("Starting bot...")
+    # 启动Flask服务器
+    t = Thread(target=run)
+    t.daemon = True
+    t.start()
+    
+    # 设置webhook
     bot.remove_webhook()
     time.sleep(1)
-    bot.set_webhook(url='https://mainn-7th7.onrender.com/' + TOKEN)
+    bot.set_webhook(url='https://your-render-app-url.onrender.com/webhook')
+    
+    print("Bot is running!")
+    while True:
+        time.sleep(1000)
