@@ -4,6 +4,7 @@ import telebot
 from telebot import types
 import sqlite3
 import time
+import os
 
 TOKEN = '8149279921:AAFoNP5M-9mn_GpgHM244X1ETqFWtBNCFnQ'
 bot = telebot.TeleBot(TOKEN, threaded=True)
@@ -14,7 +15,7 @@ app = Flask(__name__)
 def home():
     return "Bot is running!"
 
-@app.route('/' + TOKEN, methods=['POST'])
+@app.route('/webhook/' + TOKEN, methods=['POST'])
 def webhook():
     if request.headers.get('content-type') == 'application/json':
         json_string = request.get_data().decode('utf-8')
@@ -25,9 +26,7 @@ def webhook():
         return "Invalid content type", 403
 
 def run():
-    app.run(host='0.0.0.0', port=8080)
-
-Thread(target=run).start()
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
 
 # Bot settings
 ADMIN_ID = 6831120113
@@ -53,7 +52,8 @@ def is_subscribed(user_id):
             member = bot.get_chat_member(ch, user_id)
             if member.status in ['left', 'kicked']:
                 return False
-        except:
+        except Exception as e:
+            print(f"Error checking subscription for {ch}: {e}")
             return False
     return True
 
@@ -92,25 +92,8 @@ def start(message):
 @bot.callback_query_handler(func=lambda call: call.data == 'check_join')
 def check_join(call):
     if is_subscribed(call.from_user.id):
-        # Directly show the free subscription section
-        user_id = call.from_user.id
-        cursor.execute("SELECT invites FROM users WHERE id=?", (user_id,))
-        invites = cursor.fetchone()
-        
-        if invites and invites[0] * 5 >= 200:
-            msg = "🎉 تهانينا! لقد وصلت إلى 200 نقطة وتستحق الحصول على اشتراك مجاني!\n\nاضغط على الزر أدناه للحصول على اشتراكك المجاني:"
-        else:
-            needed = 40 - invites[0] if invites else 40
-            msg = f"🔍 أنت بحاجة إلى {needed} دعوة أخرى للحصول على اشتراك مجاني (كل دعوة = 5 نقاط).\n\nيمكنك دعوة الأصدقاء باستخدام زر 'رابط الدعوة' في القائمة الرئيسية."
-        
-        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-        markup.row("Instagram / انستغرام", "TikTok / تيك توك")
-        markup.row("Facebook / فيسبوك", "Telegram / تيليجرام")
-        markup.row("Referral Link / رابط الدعوة", "نقاطي")
-        markup.row(types.KeyboardButton("✨ الحصول على اشتراك مجاني ✨"))
-        
-        bot.send_message(call.from_user.id, msg, reply_markup=markup)
         send_main_menu(call.from_user.id)
+        bot.answer_callback_query(call.id, "✅ تم الاشتراك بنجاح! يمكنك الآن استخدام البوت.", show_alert=True)
     else:
         bot.answer_callback_query(call.id, "❌ الرجاء الاشتراك بجميع القنوات المطلوبة لاستخدام البوت!", show_alert=True)
 
@@ -175,11 +158,10 @@ def ask_link(message, service):
         send_main_menu(message.chat.id)
         return
     
-    message.chat.service = service
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     markup.row("⬅️ Back / رجوع")
     bot.send_message(message.chat.id, "أرسل رابط الصفحة أو المنشور المراد رشقه:", reply_markup=markup)
-    bot.register_next_step_handler(message, lambda m: ask_code(m, service, m.text))
+    bot.register_next_step_handler(message, lambda m: ask_code(m, service, message.text))
 
 def ask_code(message, service, page_link):
     if message.text == "⬅️ Back / رجوع":
@@ -201,7 +183,6 @@ def send_to_admin(message, service, page_link):
     text = f"🛒 طلب جديد\n\n👤 المستخدم: @{user.username} ({user.id})\n📦 الخدمة: {service}\n🔗 الرابط: {page_link}\n💳 الكود: {code}\n⏳ يتم التحقق من الطلب... خلال 24 ساعة فقط"
     
     bot.send_message(DETAILS_CHANNEL, text, parse_mode="Markdown")
-    bot.send_message(DETAILS_CHANNEL, f"{code}")
     
     markup = types.InlineKeyboardMarkup()
     markup.add(
@@ -214,11 +195,16 @@ def send_to_admin(message, service, page_link):
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("accept_") or call.data.startswith("reject_"))
 def handle_admin_response(call):
-    user_id = int(call.data.split("_")[1])
-    if call.data.startswith("accept"):
+    action, user_id = call.data.split("_")
+    user_id = int(user_id)
+    
+    if action == "accept":
         bot.send_message(user_id, "✅ تم قبول كودك. سيتم تنفيذ العملية خلال 24 ساعة فقط.")
+        bot.answer_callback_query(call.id, "✅ تم قبول الطلب")
     else:
         bot.send_message(user_id, "❌ تم رفض كودك. حاول مرة أخرى.")
+        bot.answer_callback_query(call.id, "❌ تم رفض الطلب")
+    
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
 @bot.message_handler(func=lambda msg: msg.text == "⬅️ Back / رجوع")
@@ -229,9 +215,7 @@ def go_back(msg):
 def send_ref_link(msg):
     user_id = msg.from_user.id
     link = f"https://t.me/{bot.get_me().username}?start={user_id}"
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📋 انسخ الرابط", switch_inline_query=link))
-    bot.send_message(msg.chat.id, f"انسخ وشارك هذا الرابط لدعوة أصدقائك:\n\n`{link}`", parse_mode="Markdown", reply_markup=markup)
+    bot.send_message(msg.chat.id, f"انسخ وشارك هذا الرابط لدعوة أصدقائك:\n\n`{link}`\n\n📌 كل دعوة صديق = 5 نقاط\n🎁 كل 200 نقطة = اشتراك مجاني", parse_mode="Markdown")
 
 @bot.message_handler(func=lambda msg: msg.text in ["الحصول على اشتراك مجاني", "✨ الحصول على اشتراك مجاني ✨"])
 def check_free_subscription(msg):
@@ -240,11 +224,12 @@ def check_free_subscription(msg):
     invites = cursor.fetchone()
     
     if invites and invites[0] * 5 >= 200:
-        bot.send_message(DETAILS_CHANNEL, f"✅ المستخدم @{msg.from_user.username} ({user_id}) وصل إلى 200 نقطة ويستحق اشتراك مجاني!")
-        bot.send_message(user_id, "تهانينا! تم إشعار الإدارة للحصول على اشتراك مجاني.")
+        bot.send_message(DETAILS_CHANNEL, f"✅ المستخدم @{msg.from_user.username} ({user_id}) وصل إلى 200 نقطة ويستحق اشتراك مجاني!\n\nالنقاط: {invites[0] * 5}\nالدعوات: {invites[0]}")
+        bot.send_message(user_id, "🎉 تهانينا! تم إشعار الإدارة للحصول على اشتراك مجاني.\n\nسيتم التواصل معك قريباً.")
     else:
-        needed = 40 - invites[0] if invites else 40
-        bot.send_message(user_id, f"❌ لم تصل إلى 200 نقطة بعد. تحتاج إلى {needed} دعوة أخرى (كل دعوة صديق = 5 نقاط).")
+        needed_invites = 40 - invites[0] if invites else 40
+        needed_points = 200 - (invites[0] * 5 if invites else 0)
+        bot.send_message(user_id, f"❌ لم تصل إلى 200 نقطة بعد.\n\nنقاطك الحالية: {invites[0] * 5 if invites else 0}\nتحتاج إلى {needed_points} نقطة أخرى\nتحتاج إلى {needed_invites} دعوة أخرى (كل دعوة صديق = 5 نقاط).")
 
 @bot.message_handler(func=lambda msg: msg.text == "نقاطي")
 def show_points(msg):
@@ -254,12 +239,26 @@ def show_points(msg):
     
     if invites:
         points = invites[0] * 5
-        bot.send_message(user_id, f"نقاطك الحالية: {points} نقطة (عدد الدعوات: {invites[0]})")
+        bot.send_message(user_id, f"📊 إحصائيات حسابك:\n\n⭐ النقاط: {points}\n📌 عدد الدعوات: {invites[0]}\n🎯 المتبقي للاشتراك المجاني: {200 - points} نقطة")
     else:
         bot.send_message(user_id, "لم يتم العثور على نقاطك.")
 
 if __name__ == '__main__':
-    print("Bot is running...")
+    print("Bot is starting...")
+    
+    # Remove existing webhook
     bot.remove_webhook()
     time.sleep(1)
-    bot.set_webhook(url='https://mainn-7th7.onrender.com/' + TOKEN)
+    
+    # Set webhook for Render
+    webhook_url = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME', '')}/webhook/{TOKEN}"
+    if webhook_url.startswith("https://"):
+        bot.set_webhook(url=webhook_url)
+        print(f"Webhook set to: {webhook_url}")
+    else:
+        print("Running in polling mode (local development)")
+        Thread(target=bot.polling, kwargs={"none_stop": True, "timeout": 60}).start()
+    
+    # Start Flask app
+    Thread(target=run).start()
+    print("Flask app started")
