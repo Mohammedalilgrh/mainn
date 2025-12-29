@@ -5,7 +5,7 @@ from telebot import types
 import sqlite3
 import time
 
-TOKEN = '8149279921:AAHmj_-r2MLEGCsUBFk860amrD88s9ZZfco'
+TOKEN ='8149279921:AAHmj_-r2MLEGCsUBFk860amrD88s9ZZfco'
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
 app = Flask(__name__)
@@ -262,4 +262,4 @@ if __name__ == '__main__':
     print("Bot is running...")
     bot.remove_webhook()
     time.sleep(1)
-    bot.set_webhook(url='https://mainn-xuey.onrender.com' + TOKEN)
+    bot.set_webhook(url='https://mainn-xuey.onrender.com'+TOKEN)
