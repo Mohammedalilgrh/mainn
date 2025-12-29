@@ -262,4 +262,4 @@ if __name__ == '__main__':
     print("Bot is running...")
     bot.remove_webhook()
     time.sleep(1)
-    bot.set_webhook(url='https://mainn-7th7.onrender.com/' + TOKEN)
+    bot.set_webhook(url='https://mainn-xuey.onrender.com' + TOKEN)
